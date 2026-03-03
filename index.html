@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no">
+  <title>Leslie Sharpe</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%; overflow: hidden;
+      background: transparent;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .viewport {
+      position: fixed; inset: 0;
+      overflow: hidden;
+      background: #0a0a0a;
+    }
+
+    .viewport-bg {
+      position: fixed; inset: 0;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .viewport-bg img,
+    .viewport-bg video {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      min-width: 100%;
+      min-height: 100%;
+      width: auto;
+      height: auto;
+      transform: translate(-50%, -50%) scale(1.5);
+      object-fit: cover;
+      filter: blur(70px);
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+    .viewport-bg img.visible,
+    .viewport-bg video.visible {
+      opacity: 0.9;
+    }
+
+    .column {
+      will-change: transform;
+      width: 100%;
+      padding: 1em 4px 0;
+      box-sizing: border-box;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section {
+      position: relative;
+    }
+
+    .row {
+      display: flex;
+      width: 100%;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .cell {
+      line-height: 0;
+      position: relative;
+      margin-bottom: 4px;
+      flex-shrink: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .cell-inner {
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid currentColor;
+      line-height: 0;
+      position: relative;
+      background: transparent;
+      max-height: 50vh;
+    }
+
+    .cell-inner canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      z-index: 2;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .cell-inner canvas.gone { opacity: 0; }
+
+    .cell-inner img, .cell-inner video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-height: 50vh;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .cell-inner img.loaded, .cell-inner video.loaded {
+      opacity: 1;
+    }
+
+    .cell-statement {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: Monaco, "Courier New", monospace;
+      font-size: 10px;
+      line-height: 1.4;
+      background: transparent;
+      overflow: hidden;
+      position: relative;
+      max-height: 50vh;
+    }
+    .cell-statement .shape-el {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .cell-statement .stmt-text {
+      position: relative;
+      z-index: 1;
+      padding: 1.5em;
+    }
+
+    .site-copy {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 1em;
+      font-family: Monaco, "Courier New", monospace;
+      font-size: 10px;
+      line-height: 1.6;
+      color: #fff;
+      mix-blend-mode: difference;
+      pointer-events: none;
+    }
+    .site-copy-top,
+    .site-copy-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 1rem;
+    }
+    .site-copy-bottom { align-items: end; }
+    .site-copy .col-1 { text-align: left; }
+    .site-copy .col-2 { text-align: center; }
+    .site-copy .col-3 { text-align: right; white-space: nowrap; }
+    .site-copy-links {
+      letter-spacing: 0.02em;
+    }
+    .site-copy a, .site-copy a:any-link {
+      color: inherit;
+      text-decoration: none !important;
+      pointer-events: auto;
+    }
+    .site-copy a:hover { opacity: 0.02; }
+
+    @media (max-width: 768px) {
+      .site-copy-top {
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .site-copy .col-2 { text-align: left; }
+      .site-copy .col-3 { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="viewport">
+  <div class="site-copy">
+    <div class="site-copy-top">
+      <div class="col-1">Leslie Sharpe</div>
+      <div class="col-2 site-copy-links">
+        +61 466 286 739, <a href="mailto:les@ooft.studio">Email</a>, <a href="https://www.linkedin.com/in/leslie-sharpe/" target="_blank" rel="noopener">LinkedIn</a>, <a href="https://www.instagram.com/lesliesharpe_/" target="_blank" rel="noopener">Insta</a>
+      </div>
+      <div class="col-3">
+        Collaroy, Sydney <span id="site-copy-weather"></span>
+      </div>
+    </div>
+    <div class="site-copy-bottom"></div>
+  </div>
+  <div class="viewport-bg" id="viewport-bg">
+    <img id="bg-img" alt="" crossorigin="anonymous">
+    <video id="bg-video" muted loop playsinline preload="auto" crossorigin="anonymous"></video>
+  </div>
+  <div class="column" id="column"></div>
+</div>
+
+<script>
+const BASE = "select select/";
+// Images: render as <img>. Everything else (mp4, mov, webm, etc.) as <video>
+const isImg = f => /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)$/i.test(f);
+const column = document.getElementById("column");
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const COLORS = [
+  "#00E676","#FF4081","#E0E0E0","#00BCD4","#FF6D00","#C6FF00",
+  "#F48FB1","#B0BEC5","#69F0AE","#EA80FC","#D4E157","#FF80AB",
+  "#A7FFEB","#CFD8DC","#FFAB40","#B2FF59","#FF4081","#80CBC4",
+  "#F5F5F5","#CE93D8","#AED581","#FFCCBC","#84FFFF","#BCAAA4"
+];
+function randColor() { return COLORS[Math.floor(Math.random() * COLORS.length)]; }
+
+function pixelReveal(inner, canvas, media) {
+  const ctx = canvas.getContext("2d");
+  let step = 0;
+  const sizes = [4, 8, 16, 32, 64];
+  const mw = media.videoWidth || media.naturalWidth;
+  const mh = media.videoHeight || media.naturalHeight;
+  if (mw && mh) {
+    const ratio = mw / mh;
+    if (ratio < 0.75) inner.style.aspectRatio = "3/4";
+    else inner.style.aspectRatio = mw + "/" + mh;
+  }
+
+  function draw() {
+    if (step >= sizes.length) {
+      canvas.classList.add("gone");
+      media.classList.add("loaded");
+      setTimeout(() => canvas.remove(), 500);
+      return;
+    }
+    const aspect = mw / mh;
+    if (!aspect || isNaN(aspect)) {
+      canvas.classList.add("gone");
+      media.classList.add("loaded");
+      setTimeout(() => canvas.remove(), 500);
+      return;
+    }
+    const s = sizes[step];
+    const w = s, h = Math.round(s / aspect) || s;
+    canvas.width = w; canvas.height = h;
+    try { ctx.drawImage(media, 0, 0, w, h); } catch(e) {}
+    step++;
+    setTimeout(draw, 120);
+  }
+  draw();
+}
+
+const STATEMENTS_SHORT = [
+  "Make it less shit",
+  "Les Is More",
+  "Form follows feeling",
+  "I like cheese cake",
+  "Make it better",
+  "Kern hard or go home",
+  "Make it weird",
+  "I like all the things",
+  "Water the root enjoy the froot",
+];
+const STATEMENTS_LONG = [
+  "Moving things around until they look right",
+  "World building not asset making",
+  "Yes I got the pencils and the lions",
+];
+let stmtIdx = 0;
+
+const SHAPE_TYPES = ["circle", "starburst", "diamond", "heart", "hexagon"];
+let lastShapeType = "";
+
+function makeHeartSVG(strokeCol) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.style.position = "absolute";
+  svg.style.inset = "0";
+  svg.style.width = "100%";
+  svg.style.height = "100%";
+  svg.style.pointerEvents = "none";
+  svg.style.overflow = "hidden";
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("d", "M50 88 C25 70, 2 55, 2 33 C2 18, 14 6, 28 6 C37 6, 44 10, 50 20 C56 10, 63 6, 72 6 C86 6, 98 18, 98 33 C98 55, 75 70, 50 88Z");
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", strokeCol);
+  path.setAttribute("stroke-width", "1");
+  path.setAttribute("vector-effect", "non-scaling-stroke");
+  path.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(path);
+  return svg;
+}
+
+function makeHexagonSVG(strokeCol) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 87");
+  svg.style.position = "absolute";
+  svg.style.inset = "0";
+  svg.style.width = "100%";
+  svg.style.height = "100%";
+  svg.style.pointerEvents = "none";
+  svg.style.overflow = "hidden";
+  const poly = document.createElementNS(ns, "polygon");
+  poly.setAttribute("points", "25,1 75,1 99,43.5 75,86 25,86 1,43.5");
+  poly.setAttribute("fill", "none");
+  poly.setAttribute("stroke", strokeCol);
+  poly.setAttribute("stroke-width", "1");
+  poly.setAttribute("vector-effect", "non-scaling-stroke");
+  poly.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(poly);
+  return svg;
+}
+
+function makeStarburstSVG(strokeCol) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.style.position = "absolute";
+  svg.style.inset = "0";
+  svg.style.width = "100%";
+  svg.style.height = "100%";
+  svg.style.pointerEvents = "none";
+  svg.style.overflow = "hidden";
+  const spikes = (5 + Math.floor(Math.random() * 4)) * 2;
+  const innerR = 28;
+  const outerR = 48;
+  const pts = [];
+  for (let s = 0; s < spikes * 2; s++) {
+    const angle = (s * Math.PI) / spikes - Math.PI / 2;
+    const r = s % 2 === 0 ? outerR : innerR;
+    pts.push((50 + r * Math.cos(angle)).toFixed(1) + "," + (50 + r * Math.sin(angle)).toFixed(1));
+  }
+  const poly = document.createElementNS(ns, "polygon");
+  poly.setAttribute("points", pts.join(" "));
+  poly.setAttribute("fill", "none");
+  poly.setAttribute("stroke", strokeCol);
+  poly.setAttribute("stroke-width", "1");
+  poly.setAttribute("vector-effect", "non-scaling-stroke");
+  poly.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(poly);
+  return svg;
+}
+
+function makeStatementCell(widthPct) {
+  const cell = document.createElement("div");
+  cell.className = "cell";
+
+  const el = document.createElement("div");
+  el.className = "cell-statement";
+  el.style.width = "100%";
+  el.style.aspectRatio = "1/1";
+  const strokeCol = randColor();
+  let shapeType;
+  do { shapeType = SHAPE_TYPES[Math.floor(Math.random() * SHAPE_TYPES.length)]; } while (shapeType === lastShapeType);
+  lastShapeType = shapeType;
+  const pool = (widthPct && widthPct >= 50 && shapeType === "circle") ? STATEMENTS_SHORT.concat(STATEMENTS_LONG) : STATEMENTS_SHORT;
+
+  if (shapeType === "circle") {
+    const ar = (0.7 + Math.random() * 0.6).toFixed(2);
+    el.style.aspectRatio = ar + "/1";
+    const shape = document.createElement("div");
+    shape.className = "shape-el";
+    shape.style.border = "1px solid " + strokeCol;
+    shape.style.borderRadius = "50%";
+    const skewX = (Math.random() - 0.5) * 20;
+    shape.style.transform = "skew(" + skewX + "deg)";
+    const pad = Math.abs(skewX) * 0.6;
+    shape.style.inset = pad + "% " + pad + "%";
+    el.appendChild(shape);
+  } else if (shapeType === "diamond") {
+    el.style.aspectRatio = "1/1";
+    el.style.maxWidth = "50vh";
+    const shape = document.createElement("div");
+    shape.className = "shape-el";
+    shape.style.border = "1px solid " + strokeCol;
+    shape.style.transform = "rotate(45deg)";
+    shape.style.width = "70.7%";
+    shape.style.height = "70.7%";
+    shape.style.top = "14.65%";
+    shape.style.left = "14.65%";
+    shape.style.inset = "auto";
+    el.appendChild(shape);
+  } else if (shapeType === "starburst") {
+    el.appendChild(makeStarburstSVG(strokeCol));
+  } else if (shapeType === "heart") {
+    el.style.aspectRatio = "1/1";
+    el.style.maxWidth = "50vh";
+    el.appendChild(makeHeartSVG(strokeCol));
+  } else if (shapeType === "hexagon") {
+    el.style.aspectRatio = "100/87";
+    el.style.maxWidth = "50vh";
+    el.appendChild(makeHexagonSVG(strokeCol));
+  }
+
+  const txt = document.createElement("span");
+  txt.className = "stmt-text";
+  txt.style.color = randColor();
+  if (shapeType === "heart") txt.style.marginTop = "-12%";
+  txt.textContent = pool[stmtIdx % pool.length];
+  stmtIdx++;
+  el.appendChild(txt);
+
+  cell.appendChild(el);
+  return cell;
+}
+
+function makeCell(f) {
+  const src = encodeURI(BASE + f);
+  const cell = document.createElement("div");
+  cell.className = "cell";
+
+  const inner = document.createElement("div");
+  inner.className = "cell-inner";
+  inner.style.borderColor = randColor();
+  const preloadRatios = ["16/9", "4/3", "3/2", "1/1", "5/4"];
+  inner.style.aspectRatio = preloadRatios[Math.floor(Math.random() * preloadRatios.length)];
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 4; canvas.height = 4;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = randColor();
+  ctx.fillRect(0, 0, 4, 4);
+
+  inner.appendChild(canvas);
+  inner.dataset.src = src;
+  inner.dataset.type = isImg(f) ? "img" : "video";
+
+  cell.appendChild(inner);
+  return cell;
+}
+
+const layouts = [
+  { splits: [70, 30] },
+  { splits: [30, 70] },
+  { splits: [50, 50] },
+  { splits: [60, 40] },
+  { splits: [40, 60] },
+  { splits: [75, 25] },
+  { splits: [25, 75] },
+  { splits: [65, 35] },
+  { splits: [35, 65] },
+  { splits: [33, 34, 33] },
+  { splits: [50, 25, 25] },
+  { splits: [25, 50, 25] },
+  { splits: [25, 25, 50] },
+  { splits: [40, 30, 30] },
+  { splits: [30, 40, 30] },
+];
+
+function buildSection(files) {
+  const section = document.createElement("div");
+  section.className = "section";
+  let i = 0, lastLi = -1;
+
+  while (i < files.length) {
+    let li;
+    do { li = Math.floor(Math.random() * layouts.length); } while (li === lastLi);
+    lastLi = li;
+    const layout = layouts[li];
+    const cols = layout.splits.length;
+
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const shapeSlots = new Set();
+    for (let c = 0; c < cols; c++) {
+      if (Math.random() < 0.4) shapeSlots.add(c);
+    }
+    if (shapeSlots.size === cols) shapeSlots.delete(Math.floor(Math.random() * cols));
+    if (shapeSlots.size === 0 && Math.random() < 0.7) shapeSlots.add(Math.floor(Math.random() * cols));
+
+    for (let c = 0; c < cols; c++) {
+      if (shapeSlots.has(c)) {
+        const cell = makeStatementCell(layout.splits[c]);
+        cell.style.width = layout.splits[c] + "%";
+        row.appendChild(cell);
+      } else {
+        if (i >= files.length) {
+          const cell = makeStatementCell(layout.splits[c]);
+          cell.style.width = layout.splits[c] + "%";
+          row.appendChild(cell);
+        } else {
+          const cell = makeCell(files[i]);
+          cell.style.width = layout.splits[c] + "%";
+          row.appendChild(cell);
+          i++;
+        }
+      }
+    }
+    section.appendChild(row);
+  }
+  return section;
+}
+
+function cleanupSection(section) {
+  section.querySelectorAll("video").forEach(v => {
+    v.pause();
+    v.removeAttribute("src");
+    v.load();
+  });
+  section.querySelectorAll("img").forEach(img => {
+    img.removeAttribute("src");
+  });
+  section.remove();
+}
+
+async function init() {
+  let FILES;
+  try {
+    const res = await fetch("files.json");
+    FILES = await res.json();
+  } catch { FILES = []; }
+  if (!FILES.length) {
+    column.innerHTML = [
+      '<p style="padding:2rem;font-family:system-ui;color:#666;max-width:28em;">',
+      '<strong>No media loaded.</strong> This app needs the project server (it provides <code>/api/files</code>). ',
+      'Live Server and opening the file directly don’t run that server.',
+      '</p>',
+      '<p style="padding:0 2rem;font-family:system-ui;color:#333;">',
+      'In the terminal run: <code style="background:#eee;padding:2px 6px;border-radius:4px;">node server.js</code> then open <a href="http://localhost:3000" style="color:#00BCD4;">http://localhost:3000</a>',
+      '</p>'
+    ].join('');
+    return;
+  }
+
+  const vh = window.innerHeight;
+  const sections = [];
+  const MAX_SECTIONS = 20;
+
+  let loadQueue = [];
+  let loadingCount = 0;
+  const MAX_CONCURRENT = 6;
+  const LOAD_TIMEOUT_MS = 15000;
+  const RETRY_DELAY_MS = 2000;
+  const MAX_RETRIES = 3;
+
+  function processQueue() {
+    loadQueue = loadQueue.filter(inner => inner.isConnected && inner.dataset.loaded !== "done" && inner.dataset.loaded !== "loading");
+    while (loadQueue.length && loadingCount < MAX_CONCURRENT) {
+      const inner = loadQueue.shift();
+      if (inner.dataset.loaded === "done" || inner.dataset.loaded === "loading") continue;
+      if (!inner.isConnected) continue;
+      delete inner.dataset.queued;
+      loadingCount++;
+      loadCellAsync(inner).then(() => { loadingCount--; updateBlurBackground(); processQueue(); });
+    }
+  }
+
+  function loadCellAsync(inner) {
+    return new Promise(resolve => {
+      if (inner.dataset.loaded === "done") { resolve(); return; }
+      const retries = parseInt(inner.dataset.loadRetries || "0", 10);
+      if (retries >= MAX_RETRIES) {
+        inner.dataset.loaded = "done";
+        inner.closest(".cell").style.display = "none";
+        resolve();
+        return;
+      }
+      inner.dataset.loaded = "loading";
+      inner.dataset.loadRetries = String(retries + 1);
+      const src = inner.dataset.src;
+      const canvas = inner.querySelector("canvas");
+      if (!canvas || !inner.isConnected) { delete inner.dataset.loaded; resolve(); return; }
+
+      function fail() {
+        delete inner.dataset.loaded;
+        delete inner.dataset.queued;
+        const media = inner.querySelector("img, video");
+        if (media) media.remove();
+        resolve();
+        setTimeout(() => {
+          if (inner.isConnected && inner.dataset.loaded !== "done") {
+            inner.dataset.queued = "1";
+            loadQueue.push(inner);
+            processQueue();
+          }
+        }, RETRY_DELAY_MS);
+      }
+
+      function succeed(media) {
+        inner.dataset.loaded = "done";
+        if (!inner.isConnected) { resolve(); return; }
+        inner.insertBefore(media, canvas);
+        pixelReveal(inner, canvas, media);
+        resolve();
+      }
+
+      if (inner.dataset.type === "img") {
+        const img = new Image();
+        img.draggable = false;
+        let settled = false;
+        img.onload = () => { if (settled) return; settled = true; succeed(img); };
+        img.onerror = () => { if (settled) return; settled = true; fail(); };
+        img.src = src;
+        setTimeout(() => { if (!settled) { settled = true; img.complete ? succeed(img) : fail(); } }, LOAD_TIMEOUT_MS);
+      } else {
+        const v = document.createElement("video");
+        v.muted = true; v.playsInline = true; v.loop = true;
+        v.setAttribute("playsinline", "");
+        v.preload = "auto";
+        let settled = false;
+        function revealVideo() {
+          if (settled) return;
+          settled = true;
+          succeed(v);
+        }
+        v.onloadeddata = revealVideo;
+        v.oncanplay = revealVideo;
+        v.onerror = () => { if (settled) return; settled = true; fail(); };
+        v.src = src;
+        setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          if (v.readyState >= 2) succeed(v);
+          else fail();
+        }, LOAD_TIMEOUT_MS);
+      }
+    });
+  }
+
+  function queueCell(inner) {
+    if (inner.dataset.loaded === "done" || inner.dataset.loaded === "loading" || inner.dataset.queued) return;
+    if (!inner.isConnected) return;
+    inner.dataset.queued = "1";
+    loadQueue.push(inner);
+  }
+  function checkVisibility() {
+    const margin = vh * 1.2;
+    column.querySelectorAll(".cell-inner").forEach(inner => {
+      const r = inner.getBoundingClientRect();
+      if (r.bottom > -margin && r.top < vh + margin) queueCell(inner);
+      const v = inner.querySelector("video");
+      if (!v) return;
+      const visible = r.bottom > 0 && r.top < vh;
+      if (visible && v.paused) v.play().catch(() => {});
+      else if (!visible && !v.paused) v.pause();
+    });
+    processQueue();
+  }
+
+  function manageInfiniteScroll() {
+    const lastSection = sections[sections.length - 1];
+    const lastRect = lastSection.getBoundingClientRect();
+    if (lastRect.top < vh * 2) {
+      addSection();
+      checkVisibility();
+    }
+
+    while (sections.length > MAX_SECTIONS) {
+      const oldest = sections[0];
+      const hasLoading = oldest.querySelector('.cell-inner[data-loaded="loading"]');
+      const hasQueued = loadQueue.some(inner => oldest.contains(inner));
+      if (hasLoading || hasQueued) break;
+      const oldHeight = oldest.offsetHeight;
+      cleanupSection(oldest);
+      sections.shift();
+      scrollCurrent -= oldHeight;
+      scrollTarget -= oldHeight;
+    }
+  }
+
+  function addSection() {
+    const s = buildSection(shuffle(FILES));
+    column.appendChild(s);
+    sections.push(s);
+  }
+
+  addSection();
+  addSection();
+  addSection();
+
+  checkVisibility();
+  setTimeout(checkVisibility, 100);
+  setTimeout(checkVisibility, 500);
+  setTimeout(checkVisibility, 1500);
+  setInterval(checkVisibility, 800);
+
+  const bgImg = document.getElementById("bg-img");
+  const bgVideo = document.getElementById("bg-video");
+  let currentBgSrc = null;
+
+  function updateBlurBackground() {
+    const centerY = vh * 0.5;
+    const inners = column.querySelectorAll('.cell-inner[data-loaded="done"]');
+    let best = null;
+    let bestDist = Infinity;
+    for (const el of inners) {
+      const r = el.getBoundingClientRect();
+      const midY = r.top + r.height / 2;
+      const dist = Math.abs(midY - centerY);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = el;
+      }
+    }
+    if (!best) return;
+    const src = best.dataset.src;
+    if (!src || src === currentBgSrc) return;
+    const isVideo = best.dataset.type === "video";
+
+    currentBgSrc = src;
+    if (isVideo) {
+      bgImg.classList.remove("visible");
+      bgImg.removeAttribute("src");
+      bgVideo.classList.remove("visible");
+      bgVideo.pause();
+      bgVideo.removeAttribute("src");
+      bgVideo.load();
+      bgVideo.src = src;
+      bgVideo.onloadeddata = () => {
+        bgVideo.classList.add("visible");
+        bgVideo.play().catch(() => {});
+      };
+    } else {
+      bgVideo.classList.remove("visible");
+      bgVideo.pause();
+      bgVideo.removeAttribute("src");
+      bgVideo.load();
+      bgImg.classList.remove("visible");
+      bgImg.onload = () => bgImg.classList.add("visible");
+      bgImg.src = src;
+    }
+  }
+
+  let scrollTarget = 0, scrollCurrent = 0, ticking = false;
+  const LERP = 0.09;
+
+  function tick() {
+    scrollCurrent += (scrollTarget - scrollCurrent) * LERP;
+    if (Math.abs(scrollTarget - scrollCurrent) < 0.5) scrollCurrent = scrollTarget;
+    if (scrollCurrent < 0) scrollCurrent = scrollTarget = 0;
+
+    column.style.transform = `translateY(${-scrollCurrent}px)`;
+    updateBlurBackground();
+    checkVisibility();
+    manageInfiniteScroll();
+
+    if (scrollCurrent !== scrollTarget) {
+      requestAnimationFrame(tick);
+    } else {
+      ticking = false;
+    }
+  }
+
+  function startTick() {
+    if (!ticking) { ticking = true; requestAnimationFrame(tick); }
+  }
+
+  document.addEventListener("wheel", e => {
+    e.preventDefault();
+    if (e.deltaY > 0) { scrollTarget += e.deltaY; startTick(); }
+  }, { passive: false });
+
+  window.addEventListener("keydown", e => {
+    const step = vh * 0.6;
+    if (e.key === "ArrowDown") { scrollTarget += step; startTick(); }
+  });
+
+  let touchY = 0, touchActive = false;
+  document.addEventListener("touchstart", e => {
+    touchY = e.touches[0].clientY; touchActive = true;
+  }, { passive: true });
+  document.addEventListener("touchmove", e => {
+    if (!touchActive) return;
+    e.preventDefault();
+    const dy = touchY - e.touches[0].clientY;
+    touchY = e.touches[0].clientY;
+    if (dy > 0) { scrollTarget += dy * 1.5; startTick(); }
+  }, { passive: false });
+  document.addEventListener("touchend", () => { touchActive = false; });
+}
+
+// Live weather for Collaroy, Sydney
+(function() {
+  const weatherEl = document.getElementById("site-copy-weather");
+  if (weatherEl) {
+    const conditions = { 0: "Clear", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast", 45: "Fog", 48: "Fog", 51: "Light drizzle", 53: "Drizzle", 55: "Dense drizzle", 61: "Slight rain", 63: "Rain", 65: "Heavy rain", 66: "Freezing rain", 67: "Freezing rain", 71: "Slight snow", 73: "Snow", 75: "Heavy snow", 77: "Snow grains", 80: "Slight showers", 81: "Showers", 82: "Heavy showers", 85: "Snow showers", 86: "Heavy snow showers", 95: "Thunderstorm", 96: "Thunderstorm with hail", 99: "Thunderstorm with hail" };
+    function setWeather(temp, code) {
+      const cond = code != null ? (conditions[code] || "") : "";
+      weatherEl.textContent = temp != null ? temp + "°C " + cond : "";
+    }
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=-33.73&longitude=151.30&current=temperature_2m,weather_code&timezone=Australia/Sydney")
+      .then(r => r.json())
+      .then(data => {
+        const c = data.current;
+        if (c) setWeather(Math.round(c.temperature_2m), c.weather_code);
+      })
+      .catch(() => setWeather(null, null));
+    setInterval(() => {
+      fetch("https://api.open-meteo.com/v1/forecast?latitude=-33.73&longitude=151.30&current=temperature_2m,weather_code&timezone=Australia/Sydney")
+        .then(r => r.json())
+        .then(data => {
+          const c = data.current;
+          if (c) setWeather(Math.round(c.temperature_2m), c.weather_code);
+        })
+        .catch(() => {});
+    }, 600000);
+  }
+})();
+
+init();
+</script>
+</body>
+</html>
