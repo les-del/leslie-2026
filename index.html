@@ -419,6 +419,14 @@ function makeStatementCell(widthPct) {
   return cell;
 }
 
+const OVAL_FILES = [
+  "@ooft.studio 3.mp4",
+  "@ooft.studio 4.mp4",
+  "QP_vid.mp4",
+  "Offcuts_DIAMOND_DOG_low.mp4",
+  "Contag-02-html5video.mp4",
+];
+
 function makeCell(f) {
   const src = encodeURI(BASE + f);
   const cell = document.createElement("div");
@@ -429,6 +437,11 @@ function makeCell(f) {
   inner.style.borderColor = randColor();
   const preloadRatios = ["16/9", "4/3", "3/2", "1/1", "5/4"];
   inner.style.aspectRatio = preloadRatios[Math.floor(Math.random() * preloadRatios.length)];
+
+  if (OVAL_FILES.includes(f)) {
+    inner.style.borderRadius = "50%";
+    inner.style.overflow = "hidden";
+  }
 
   const canvas = document.createElement("canvas");
   canvas.width = 4; canvas.height = 4;
