@@ -100,7 +100,6 @@
       display: block;
       width: 100%;
       height: 100%;
-      max-height: 50vh;
       object-fit: cover;
       opacity: 0;
       transition: opacity 0.3s ease;
@@ -234,9 +233,7 @@ function pixelReveal(inner, canvas, media) {
   const mw = media.videoWidth || media.naturalWidth;
   const mh = media.videoHeight || media.naturalHeight;
   if (mw && mh) {
-    const ratio = mw / mh;
-    if (ratio < 0.75) inner.style.aspectRatio = "3/4";
-    else inner.style.aspectRatio = mw + "/" + mh;
+    inner.style.aspectRatio = mw + "/" + mh;
   }
 
   function draw() {
